@@ -64,7 +64,7 @@ export default function ChatWindow({
       displayName:
         otherUser?.displayName || 'User',
       photoURL: otherUser?.photoURL || '',
-      verified: otherUser?.verified || false,
+      verified: otherUser?.verified === true,
       bio: '',
     });
 
@@ -73,6 +73,9 @@ export default function ChatWindow({
       (id) => id !== currentUser.uid
     ) || '';
 
+  /*
+   * Portal mounting.
+   */
   useEffect(() => {
     setMounted(true);
 
@@ -82,8 +85,8 @@ export default function ChatWindow({
   }, []);
 
   /*
-   * Keep profile synchronized with the
-   * information already available.
+   * Keep profile information synchronized
+   * with the profile supplied by MainApp.
    */
   useEffect(() => {
     setOtherProfile((previous) => ({
@@ -113,7 +116,7 @@ export default function ChatWindow({
   ]);
 
   /*
-   * Listen for the other person's profile,
+   * Listen for the other user's current profile,
    * online status and last seen.
    */
   useEffect(() => {
@@ -128,9 +131,7 @@ export default function ChatWindow({
     const unsubscribe = onSnapshot(
       userRef,
       (snapshot) => {
-        if (!snapshot.exists()) {
-          return;
-        }
+        if (!snapshot.exists()) return;
 
         const data = snapshot.data();
 
@@ -205,15 +206,20 @@ export default function ChatWindow({
     const unsubscribe = onSnapshot(
       messagesQuery,
       async (snapshot) => {
-        const loadedMessages = snapshot.docs
-          .map((messageDoc) => ({
-            id: messageDoc.id,
-            ...messageDoc.data(),
-          }))
-          .reverse() as Message[];
+        const loadedMessages =
+          snapshot.docs
+            .map((messageDoc) => ({
+              id: messageDoc.id,
+              ...messageDoc.data(),
+            }))
+            .reverse() as Message[];
 
         setMessages(loadedMessages);
 
+        /*
+         * Mark incoming messages as delivered
+         * and read.
+         */
         const updates: Promise<void>[] = [];
 
         snapshot.docs.forEach((messageDoc) => {
@@ -236,7 +242,8 @@ export default function ChatWindow({
                   deliveredAt:
                     data.deliveredAt ||
                     serverTimestamp(),
-                  readAt: serverTimestamp(),
+                  readAt:
+                    serverTimestamp(),
                 }
               )
             );
@@ -334,7 +341,7 @@ export default function ChatWindow({
   }
 
   /*
-   * Format last seen like WhatsApp.
+   * Format last seen.
    */
   function formatLastSeen(timestamp: any) {
     if (!timestamp) return '';
@@ -355,6 +362,7 @@ export default function ChatWindow({
         now.toDateString();
 
       const yesterday = new Date(now);
+
       yesterday.setDate(
         now.getDate() - 1
       );
@@ -363,13 +371,11 @@ export default function ChatWindow({
         date.toDateString() ===
         yesterday.toDateString();
 
-      const time = date.toLocaleTimeString(
-        [],
-        {
+      const time =
+        date.toLocaleTimeString([], {
           hour: 'numeric',
           minute: '2-digit',
-        }
-      );
+        });
 
       if (sameDay) {
         return `last seen today at ${time}`;
@@ -549,7 +555,7 @@ export default function ChatWindow({
     <>
       <div className="h-full flex flex-col bg-gray-50 relative">
 
-        {/* CHAT HEADER */}
+        {/* HEADER */}
         <div className="flex-shrink-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-2.5">
           <div className="flex items-center gap-2.5">
 
@@ -576,7 +582,6 @@ export default function ChatWindow({
               </button>
             )}
 
-            {/* Person header */}
             <button
               type="button"
               onClick={() =>
@@ -601,8 +606,6 @@ export default function ChatWindow({
               />
 
               <div className="min-w-0 flex-1">
-
-                {/* Name */}
                 <div className="flex items-center gap-1.5 min-w-0">
                   <h2 className="font-semibold text-gray-900 truncate">
                     {otherProfile.displayName ||
@@ -614,7 +617,6 @@ export default function ChatWindow({
                   )}
                 </div>
 
-                {/* WhatsApp-style status */}
                 <p
                   className={`text-[11px] leading-4 truncate ${
                     otherOnline
@@ -630,7 +632,6 @@ export default function ChatWindow({
                       )
                     : ''}
                 </p>
-
               </div>
             </button>
           </div>
@@ -728,7 +729,7 @@ export default function ChatWindow({
           )}
         </div>
 
-        {/* INPUT */}
+        {/* MESSAGE INPUT */}
         <form
           onSubmit={handleSendMessage}
           className="flex-shrink-0 bg-white border-t border-gray-200 p-3"
@@ -753,30 +754,30 @@ export default function ChatWindow({
               className="flex-1 resize-none border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent max-h-32"
             />
 
+            {/* SEND BUTTON */}
             <button
               type="submit"
               disabled={
                 sending ||
                 !newMessage.trim()
               }
-              className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center hover:bg-purple-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 flex-shrink-0"
               aria-label="Send message"
             >
               {sending ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <svg
-                  className="w-5 h-5"
+                  className="w-[18px] h-[18px]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 12h14M12 5l7-7"
-                  />
+                  <path d="M22 2L11 13" />
+                  <path d="M22 2L15 22L11 13L2 9L22 2Z" />
                 </svg>
               )}
             </button>

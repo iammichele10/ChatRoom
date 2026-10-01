@@ -58,9 +58,7 @@ export default function MainApp() {
   const router = useRouter();
 
   /*
-   * ============================================================
    * REDIRECT IF NOT LOGGED IN
-   * ============================================================
    */
   useEffect(() => {
     if (!user && !loading) {
@@ -69,9 +67,7 @@ export default function MainApp() {
   }, [user, loading, router]);
 
   /*
-   * ============================================================
    * LOAD USER PROFILE
-   * ============================================================
    */
   useEffect(() => {
     async function loadProfile() {
@@ -97,33 +93,15 @@ export default function MainApp() {
         } else {
           const newProfile: UserProfile = {
             uid: user.uid,
-
-            email:
-              user.email,
-
-            username:
-              null,
-
-            displayName:
-              user.displayName,
-
-            photoURL:
-              user.photoURL,
-
-            bio:
-              '',
-
-            verified:
-              false,
-
-            profileComplete:
-              false,
-
-            createdAt:
-              serverTimestamp(),
-
-            lastSeen:
-              serverTimestamp(),
+            email: user.email,
+            username: null,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            bio: '',
+            verified: false,
+            profileComplete: false,
+            createdAt: serverTimestamp(),
+            lastSeen: serverTimestamp(),
           };
 
           await setDoc(
@@ -151,20 +129,7 @@ export default function MainApp() {
   }, [user]);
 
   /*
-   * ============================================================
    * ONLINE / LAST SEEN SYSTEM
-   * ============================================================
-   *
-   * The user's Firestore document contains:
-   *
-   * online: true / false
-   * lastSeen: timestamp
-   *
-   * While the page is visible, we refresh the online status
-   * every 15 seconds.
-   *
-   * When the user leaves the page, switches tabs, or logs out,
-   * we mark them offline and update lastSeen.
    */
   useEffect(() => {
     if (
@@ -222,14 +187,8 @@ export default function MainApp() {
       }
     };
 
-    /*
-     * Mark online immediately.
-     */
     markOnline();
 
-    /*
-     * Keep the user online while the page is visible.
-     */
     const heartbeat =
       window.setInterval(
         () => {
@@ -243,9 +202,6 @@ export default function MainApp() {
         15000
       );
 
-    /*
-     * Detect tab visibility.
-     */
     const handleVisibilityChange =
       () => {
         if (
@@ -263,9 +219,6 @@ export default function MainApp() {
       handleVisibilityChange
     );
 
-    /*
-     * Detect page closing/navigation.
-     */
     const handlePageHide = () => {
       markOffline();
     };
@@ -275,9 +228,6 @@ export default function MainApp() {
       handlePageHide
     );
 
-    /*
-     * Cleanup.
-     */
     return () => {
       active = false;
 
@@ -301,9 +251,7 @@ export default function MainApp() {
   ]);
 
   /*
-   * ============================================================
    * START CONVERSATION
-   * ============================================================
    */
   const startConversation =
     useCallback(
@@ -318,11 +266,6 @@ export default function MainApp() {
         }
 
         try {
-          /*
-           * Conversation ID is based on both user IDs.
-           * Sorting guarantees the same ID regardless
-           * of who starts the conversation.
-           */
           const convoId = [
             user.uid,
             otherUser.uid,
@@ -341,11 +284,6 @@ export default function MainApp() {
               convoRef
             );
 
-          /*
-           * =====================================================
-           * CREATE NEW CONVERSATION
-           * =====================================================
-           */
           if (!convoSnap.exists()) {
             const newConvo = {
               participants: [
@@ -358,15 +296,12 @@ export default function MainApp() {
                   username:
                     userProfile.username ||
                     '',
-
                   displayName:
                     userProfile.displayName ||
                     '',
-
                   photoURL:
                     userProfile.photoURL ||
                     '',
-
                   verified:
                     userProfile.verified ||
                     false,
@@ -376,24 +311,19 @@ export default function MainApp() {
                   username:
                     otherUser.username ||
                     '',
-
                   displayName:
                     otherUser.displayName ||
                     '',
-
                   photoURL:
                     otherUser.photoURL ||
                     '',
-
                   verified:
                     otherUser.verified ||
                     false,
                 },
               },
 
-              lastMessage:
-                null,
-
+              lastMessage: null,
               updatedAt:
                 serverTimestamp(),
             };
@@ -403,15 +333,9 @@ export default function MainApp() {
               newConvo
             );
 
-            /*
-             * Create a local Conversation object
-             * immediately so the chat can open without
-             * waiting for another listener.
-             */
             const localConversation: Conversation =
               {
-                id:
-                  convoId,
+                id: convoId,
 
                 participants: [
                   user.uid,
@@ -423,15 +347,12 @@ export default function MainApp() {
                     username:
                       userProfile.username ||
                       '',
-
                     displayName:
                       userProfile.displayName ||
                       '',
-
                     photoURL:
                       userProfile.photoURL ||
                       '',
-
                     verified:
                       userProfile.verified ||
                       false,
@@ -441,46 +362,32 @@ export default function MainApp() {
                     username:
                       otherUser.username ||
                       '',
-
                     displayName:
                       otherUser.displayName ||
                       '',
-
                     photoURL:
                       otherUser.photoURL ||
                       '',
-
                     verified:
                       otherUser.verified ||
                       false,
                   },
                 },
 
-                lastMessage:
-                  null,
-
-                updatedAt:
-                  null,
+                lastMessage: null,
+                updatedAt: null,
               };
 
             setSelectedConvo(
               localConversation
             );
           } else {
-            /*
-             * Existing conversation.
-             */
             setSelectedConvo({
-              id:
-                convoId,
-
+              id: convoId,
               ...convoSnap.data(),
             } as Conversation);
           }
 
-          /*
-           * Close search and switch to chat.
-           */
           setSearchOpen(false);
           setShowRecents(false);
         } catch (error) {
@@ -501,19 +408,11 @@ export default function MainApp() {
     );
 
   /*
-   * ============================================================
    * OPEN EXISTING CONVERSATION
-   * ============================================================
    */
   function openConversation(
     conversation: Conversation
   ) {
-    /*
-     * Safety check.
-     *
-     * This prevents an invalid conversation from
-     * being passed into ChatWindow.
-     */
     if (
       !conversation ||
       !conversation.id ||
@@ -538,18 +437,14 @@ export default function MainApp() {
   }
 
   /*
-   * ============================================================
    * RETURN TO RECENTS
-   * ============================================================
    */
   function goBackToRecents() {
     setShowRecents(true);
   }
 
   /*
-   * ============================================================
    * LOGOUT
-   * ============================================================
    */
   async function handleLogout() {
     try {
@@ -587,9 +482,7 @@ export default function MainApp() {
   }
 
   /*
-   * ============================================================
    * LOADING
-   * ============================================================
    */
   if (
     loading ||
@@ -609,18 +502,14 @@ export default function MainApp() {
   }
 
   /*
-   * ============================================================
    * NOT LOGGED IN
-   * ============================================================
    */
   if (!user) {
     return null;
   }
 
   /*
-   * ============================================================
    * PROFILE COULD NOT LOAD
-   * ============================================================
    */
   if (!userProfile) {
     return (
@@ -649,9 +538,7 @@ export default function MainApp() {
   }
 
   /*
-   * ============================================================
    * PROFILE SETUP
-   * ============================================================
    */
   if (
     !userProfile.profileComplete
@@ -667,9 +554,7 @@ export default function MainApp() {
   }
 
   /*
-   * ============================================================
-   * FIND OTHER USER IN SELECTED CONVERSATION
-   * ============================================================
+   * FIND OTHER USER
    */
   const otherUserId =
     selectedConvo &&
@@ -682,9 +567,6 @@ export default function MainApp() {
         )
       : null;
 
-  /*
-   * Get their stored conversation profile.
-   */
   const selectedOtherUser =
     selectedConvo &&
     otherUserId
@@ -695,17 +577,13 @@ export default function MainApp() {
       : null;
 
   /*
-   * ============================================================
    * MAIN APP
-   * ============================================================
    */
   return (
     <div className="h-[100dvh] w-full overflow-hidden bg-gray-100">
       <div className="flex h-full w-full">
 
-        {/* ====================================================
-            SIDEBAR
-        ===================================================== */}
+        {/* SIDEBAR */}
         <aside
           className={`
             ${
@@ -715,26 +593,20 @@ export default function MainApp() {
             }
 
             md:flex
-
             w-full
             md:w-80
             lg:w-96
-
             h-full
             bg-white
             border-r
             border-gray-200
-
             flex-col
             flex-shrink-0
-
             relative
           `}
         >
 
-          {/* ==================================================
-              SIDEBAR HEADER
-          ================================================== */}
+          {/* SIDEBAR HEADER */}
           <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white">
 
             <div className="flex items-center justify-between">
@@ -743,9 +615,10 @@ export default function MainApp() {
                 ChatLinked
               </h1>
 
+              {/* ACTION BUTTONS */}
               <div className="flex items-center gap-1">
 
-                {/* Search */}
+                {/* SEARCH */}
                 <button
                   type="button"
                   onClick={() =>
@@ -754,103 +627,108 @@ export default function MainApp() {
                         !open
                     )
                   }
-                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors"
-                  title="Search"
-                  aria-label="Search users"
+                  className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/15 active:bg-white/25 active:scale-95 transition-all duration-150"
+                  title={
+                    searchOpen
+                      ? 'Close search'
+                      : 'Search'
+                  }
+                  aria-label={
+                    searchOpen
+                      ? 'Close search'
+                      : 'Search users'
+                  }
                 >
                   {searchOpen ? (
                     <svg
-                      className="w-5 h-5"
+                      className="w-[19px] h-[19px]"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      strokeLinecap="round"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 6l12 12M18 6L6 18"
-                      />
+                      <path d="M6 6l12 12" />
+                      <path d="M18 6L6 18" />
                     </svg>
                   ) : (
                     <svg
-                      className="w-5 h-5"
+                      className="w-[19px] h-[19px]"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      <circle
+                        cx="11"
+                        cy="11"
+                        r="7"
                       />
+                      <path d="M20 20l-4-4" />
                     </svg>
                   )}
                 </button>
 
-                {/* Settings */}
+                {/* SETTINGS */}
                 <button
                   type="button"
-                  onClick={() =>
-                    setSettingsOpen(
-                      true
-                    )
-                  }
-                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors"
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setSettingsOpen(true);
+                  }}
+                  className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/15 active:bg-white/25 active:scale-95 transition-all duration-150"
                   title="Settings"
-                  aria-label="Settings"
+                  aria-label="Open settings"
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="w-[19px] h-[19px]"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 010 3.35 1.724 1.724 0 00-1.065 2.573c.94 1.543-.827 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.065c-1.543.94-3.31-.827-2.37-2.37a1.724 1.724 0 00-1.065-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.065-2.572c-.94-1.544.827-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="3"
                     />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
+                    <path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V20h-2.6v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H5v-2.6h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1L8 6.6l.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.5V5h2.6v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.5 1h.1v2.6h-.1a1.7 1.7 0 00-1.5 1z" />
                   </svg>
                 </button>
 
-                {/* Logout */}
+                {/* LOGOUT */}
                 <button
                   type="button"
                   onClick={
                     handleLogout
                   }
-                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors"
+                  className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/15 active:bg-white/25 active:scale-95 transition-all duration-150"
                   title="Sign out"
                   aria-label="Sign out"
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="w-[19px] h-[19px]"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                    />
+                    <path d="M10 17l5-5-5-5" />
+                    <path d="M15 12H3" />
+                    <path d="M21 3v18" />
                   </svg>
                 </button>
 
               </div>
             </div>
 
-            {/* Current user */}
+            {/* CURRENT USER */}
             <div className="flex items-center gap-3 mt-4">
 
               <img
@@ -870,7 +748,6 @@ export default function MainApp() {
               />
 
               <div className="flex-1 min-w-0">
-
                 <div className="font-semibold truncate">
                   {userProfile.displayName}
                 </div>
@@ -878,14 +755,11 @@ export default function MainApp() {
                 <div className="text-sm text-white/80 truncate">
                   @{userProfile.username}
                 </div>
-
               </div>
             </div>
           </div>
 
-          {/* ==================================================
-              SEARCH
-          ================================================== */}
+          {/* SEARCH */}
           <UserSearch
             onSelectUser={
               startConversation
@@ -903,22 +777,15 @@ export default function MainApp() {
             }
           />
 
-          {/* ==================================================
-              RECENTS TITLE
-          ================================================== */}
+          {/* RECENTS TITLE */}
           <div className="px-4 pt-4 pb-2 flex-shrink-0">
-
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
               Recents
             </h2>
-
           </div>
 
-          {/* ==================================================
-              CONVERSATION LIST
-          ================================================== */}
+          {/* CONVERSATION LIST */}
           <div className="flex-1 min-h-0 overflow-hidden">
-
             <ConversationList
               currentUserId={
                 user.uid
@@ -931,12 +798,9 @@ export default function MainApp() {
                 null
               }
             />
-
           </div>
 
-          {/* ==================================================
-              SETTINGS
-          ================================================== */}
+          {/* SETTINGS PANEL */}
           {settingsOpen && (
             <SettingsPanel
               user={
@@ -956,12 +820,9 @@ export default function MainApp() {
               }}
             />
           )}
-
         </aside>
 
-        {/* ====================================================
-            CHAT AREA
-        ===================================================== */}
+        {/* CHAT AREA */}
         <main
           className={`
             ${
@@ -971,7 +832,6 @@ export default function MainApp() {
             }
 
             md:flex
-
             flex-1
             min-w-0
             min-h-0
@@ -979,13 +839,11 @@ export default function MainApp() {
             flex-col
           `}
         >
-
           {selectedConvo &&
           selectedOtherUser &&
           Array.isArray(
             selectedConvo.participants
           ) ? (
-
             <ChatWindow
               conversation={
                 selectedConvo
@@ -1000,15 +858,11 @@ export default function MainApp() {
                 goBackToRecents
               }
             />
-
           ) : (
-
             <div className="flex-1 flex items-center justify-center text-gray-500 bg-gray-50">
-
               <div className="text-center max-w-sm mx-auto p-8">
 
                 <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-
                   <svg
                     className="w-10 h-10 text-purple-400"
                     fill="none"
@@ -1022,7 +876,6 @@ export default function MainApp() {
                       d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                     />
                   </svg>
-
                 </div>
 
                 <h3 className="text-xl font-semibold text-gray-700 mb-2">
@@ -1032,15 +885,10 @@ export default function MainApp() {
                 <p className="text-gray-500">
                   Search for users above to start a conversation
                 </p>
-
               </div>
-
             </div>
-
           )}
-
         </main>
-
       </div>
     </div>
   );
