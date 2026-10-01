@@ -58,7 +58,9 @@ export default function MainApp() {
   const router = useRouter();
 
   /*
+   * ============================================================
    * REDIRECT IF NOT LOGGED IN
+   * ============================================================
    */
   useEffect(() => {
     if (!user && !loading) {
@@ -67,7 +69,9 @@ export default function MainApp() {
   }, [user, loading, router]);
 
   /*
+   * ============================================================
    * LOAD USER PROFILE
+   * ============================================================
    */
   useEffect(() => {
     async function loadProfile() {
@@ -129,7 +133,9 @@ export default function MainApp() {
   }, [user]);
 
   /*
+   * ============================================================
    * ONLINE / LAST SEEN SYSTEM
+   * ============================================================
    */
   useEffect(() => {
     if (
@@ -251,7 +257,9 @@ export default function MainApp() {
   ]);
 
   /*
+   * ============================================================
    * START CONVERSATION
+   * ============================================================
    */
   const startConversation =
     useCallback(
@@ -324,6 +332,7 @@ export default function MainApp() {
               },
 
               lastMessage: null,
+
               updatedAt:
                 serverTimestamp(),
             };
@@ -375,6 +384,7 @@ export default function MainApp() {
                 },
 
                 lastMessage: null,
+
                 updatedAt: null,
               };
 
@@ -408,7 +418,9 @@ export default function MainApp() {
     );
 
   /*
+   * ============================================================
    * OPEN EXISTING CONVERSATION
+   * ============================================================
    */
   function openConversation(
     conversation: Conversation
@@ -437,14 +449,18 @@ export default function MainApp() {
   }
 
   /*
+   * ============================================================
    * RETURN TO RECENTS
+   * ============================================================
    */
   function goBackToRecents() {
     setShowRecents(true);
   }
 
   /*
+   * ============================================================
    * LOGOUT
+   * ============================================================
    */
   async function handleLogout() {
     try {
@@ -482,7 +498,9 @@ export default function MainApp() {
   }
 
   /*
+   * ============================================================
    * LOADING
+   * ============================================================
    */
   if (
     loading ||
@@ -502,19 +520,24 @@ export default function MainApp() {
   }
 
   /*
+   * ============================================================
    * NOT LOGGED IN
+   * ============================================================
    */
   if (!user) {
     return null;
   }
 
   /*
+   * ============================================================
    * PROFILE COULD NOT LOAD
+   * ============================================================
    */
   if (!userProfile) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center p-6">
+
           <h2 className="text-xl font-semibold text-gray-700 mb-2">
             Unable to load your profile
           </h2>
@@ -532,13 +555,16 @@ export default function MainApp() {
           >
             Refresh
           </button>
+
         </div>
       </div>
     );
   }
 
   /*
+   * ============================================================
    * PROFILE SETUP
+   * ============================================================
    */
   if (
     !userProfile.profileComplete
@@ -554,7 +580,9 @@ export default function MainApp() {
   }
 
   /*
+   * ============================================================
    * FIND OTHER USER
+   * ============================================================
    */
   const otherUserId =
     selectedConvo &&
@@ -577,13 +605,18 @@ export default function MainApp() {
       : null;
 
   /*
+   * ============================================================
    * MAIN APP
+   * ============================================================
    */
   return (
     <div className="h-[100dvh] w-full overflow-hidden bg-gray-100">
+
       <div className="flex h-full w-full">
 
-        {/* SIDEBAR */}
+        {/* ====================================================
+            SIDEBAR
+        ==================================================== */}
         <aside
           className={`
             ${
@@ -593,20 +626,26 @@ export default function MainApp() {
             }
 
             md:flex
+
             w-full
             md:w-80
             lg:w-96
+
             h-full
             bg-white
             border-r
             border-gray-200
+
             flex-col
             flex-shrink-0
+
             relative
           `}
         >
 
-          {/* SIDEBAR HEADER */}
+          {/* ==================================================
+              SIDEBAR HEADER
+          ================================================== */}
           <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white">
 
             <div className="flex items-center justify-between">
@@ -684,19 +723,11 @@ export default function MainApp() {
                 >
                   <svg
                     className="w-[19px] h-[19px]"
-                    fill="none"
-                    stroke="currentColor"
+                    fill="currentColor"
                     viewBox="0 0 24 24"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    aria-hidden="true"
                   >
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="3"
-                    />
-                    <path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V20h-2.6v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H5v-2.6h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1L8 6.6l.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.5V5h2.6v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.5 1h.1v2.6h-.1a1.7 1.7 0 00-1.5 1z" />
+                    <path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.37-.31-.6-.22l-2.49 1a7.7 7.7 0 0 0-1.69-.98l-.38-2.65A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.5.42l-.38 2.65c-.61.25-1.17.58-1.69.98l-2.49-1c-.23-.08-.48 0-.6.22l-2 3.46c-.12.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.02.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.37.31.6.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.08.48 0 .6-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z" />
                   </svg>
                 </button>
 
@@ -748,6 +779,7 @@ export default function MainApp() {
               />
 
               <div className="flex-1 min-w-0">
+
                 <div className="font-semibold truncate">
                   {userProfile.displayName}
                 </div>
@@ -755,11 +787,14 @@ export default function MainApp() {
                 <div className="text-sm text-white/80 truncate">
                   @{userProfile.username}
                 </div>
+
               </div>
             </div>
           </div>
 
-          {/* SEARCH */}
+          {/* ==================================================
+              SEARCH
+          ================================================== */}
           <UserSearch
             onSelectUser={
               startConversation
@@ -777,15 +812,22 @@ export default function MainApp() {
             }
           />
 
-          {/* RECENTS TITLE */}
+          {/* ==================================================
+              RECENTS TITLE
+          ================================================== */}
           <div className="px-4 pt-4 pb-2 flex-shrink-0">
+
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
               Recents
             </h2>
+
           </div>
 
-          {/* CONVERSATION LIST */}
+          {/* ==================================================
+              CONVERSATION LIST
+          ================================================== */}
           <div className="flex-1 min-h-0 overflow-hidden">
+
             <ConversationList
               currentUserId={
                 user.uid
@@ -798,9 +840,12 @@ export default function MainApp() {
                 null
               }
             />
+
           </div>
 
-          {/* SETTINGS PANEL */}
+          {/* ==================================================
+              SETTINGS PANEL
+          ================================================== */}
           {settingsOpen && (
             <SettingsPanel
               user={
@@ -820,9 +865,12 @@ export default function MainApp() {
               }}
             />
           )}
+
         </aside>
 
-        {/* CHAT AREA */}
+        {/* ====================================================
+            CHAT AREA
+        ==================================================== */}
         <main
           className={`
             ${
@@ -832,6 +880,7 @@ export default function MainApp() {
             }
 
             md:flex
+
             flex-1
             min-w-0
             min-h-0
@@ -839,11 +888,13 @@ export default function MainApp() {
             flex-col
           `}
         >
+
           {selectedConvo &&
           selectedOtherUser &&
           Array.isArray(
             selectedConvo.participants
           ) ? (
+
             <ChatWindow
               conversation={
                 selectedConvo
@@ -858,11 +909,15 @@ export default function MainApp() {
                 goBackToRecents
               }
             />
+
           ) : (
+
             <div className="flex-1 flex items-center justify-center text-gray-500 bg-gray-50">
+
               <div className="text-center max-w-sm mx-auto p-8">
 
                 <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+
                   <svg
                     className="w-10 h-10 text-purple-400"
                     fill="none"
@@ -876,6 +931,7 @@ export default function MainApp() {
                       d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                     />
                   </svg>
+
                 </div>
 
                 <h3 className="text-xl font-semibold text-gray-700 mb-2">
@@ -885,10 +941,15 @@ export default function MainApp() {
                 <p className="text-gray-500">
                   Search for users above to start a conversation
                 </p>
+
               </div>
+
             </div>
+
           )}
+
         </main>
+
       </div>
     </div>
   );
