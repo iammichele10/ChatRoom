@@ -9,6 +9,7 @@ export interface UserProfile {
   profileComplete: boolean;
   createdAt: any;
   lastSeen: any;
+  online?: boolean;
 }
 
 export interface Conversation {
@@ -24,6 +25,21 @@ export interface Conversation {
     };
   };
 
+  /*
+   * Number of unread incoming messages for each
+   * participant.
+   *
+   * Example:
+   *
+   * unreadCounts: {
+   *   userA: 0,
+   *   userB: 3
+   * }
+   */
+  unreadCounts?: {
+    [uid: string]: number;
+  };
+
   lastMessage: {
     text: string;
     senderId: string;
@@ -36,21 +52,14 @@ export interface Conversation {
 export interface Message {
   id: string;
   text: string;
-
   senderId: string;
   senderName: string | null;
   senderPhoto: string | null;
-
   timestamp: any;
-
-  // Read receipts
   deliveredAt?: any;
   readAt?: any;
 }
 
-/**
- * Public chat room
- */
 export interface Room {
   id: string;
   name: string;

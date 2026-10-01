@@ -1,20 +1,35 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
 import { createPortal } from 'react-dom';
+
 import {
   collection,
   query,
   orderBy,
   limit,
-  addDoc,
   serverTimestamp,
   onSnapshot,
   doc,
   updateDoc,
+  setDoc,
+  increment,
+  getDoc,
 } from 'firebase/firestore';
+
 import { db } from '@/lib/firebase';
-import { Conversation, Message, UserProfile } from '@/types';
+
+import {
+  Conversation,
+  Message,
+  UserProfile,
+} from '@/types';
+
 import VerifiedBadge from './VerifiedBadge';
 
 interface ChatWindowProps {
@@ -37,15 +52,142 @@ interface OtherProfile {
   bio: string;
 }
 
+/* ============================================================
+   FALLBACK AVATAR
+============================================================ */
+
+function getInitials(
+  name?: string | null,
+  username?: string | null
+): string {
+  const value =
+    name?.trim() ||
+    username?.trim() ||
+    'U';
+
+  const parts = value
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return (
+      parts[0][0] +
+      parts[parts.length - 1][0]
+    ).toUpperCase();
+  }
+
+  return value
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function getAvatarBackground(
+  value?: string | null
+): string {
+  const colors = [
+    'bg-purple-600',
+    'bg-blue-600',
+    'bg-indigo-600',
+    'bg-violet-600',
+    'bg-fuchsia-600',
+    'bg-cyan-600',
+  ];
+
+  const text = value || 'user';
+
+  let total = 0;
+
+  for (
+    let i = 0;
+    i < text.length;
+    i++
+  ) {
+    total =
+      text.charCodeAt(i) +
+      ((total << 5) - total);
+  }
+
+  return colors[
+    Math.abs(total) % colors.length
+  ];
+}
+
+function Avatar({
+  photoURL,
+  name,
+  username,
+  className,
+}: {
+  photoURL?: string | null;
+  name?: string | null;
+  username?: string | null;
+  className: string;
+}) {
+  const [imageFailed, setImageFailed] =
+    useState(false);
+
+  const initials = getInitials(
+    name,
+    username
+  );
+
+  const background =
+    getAvatarBackground(
+      name || username
+    );
+
+  if (
+    photoURL &&
+    !imageFailed
+  ) {
+    return (
+      <img
+        src={photoURL}
+        alt={
+          name ||
+          username ||
+          'Profile'
+        }
+        className={`${className} object-cover`}
+        onError={() =>
+          setImageFailed(true)
+        }
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${className} ${background} text-white flex items-center justify-center font-semibold select-none`}
+      aria-label={
+        name ||
+        username ||
+        'Profile'
+      }
+    >
+      {initials}
+    </div>
+  );
+}
+
+/* ============================================================
+   MAIN CHAT WINDOW
+============================================================ */
+
 export default function ChatWindow({
   conversation,
   otherUser,
   currentUser,
   onBack,
 }: ChatWindowProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [sending, setSending] = useState(false);
+  const [messages, setMessages] =
+    useState<Message[]>([]);
+
+  const [newMessage, setNewMessage] =
+    useState('');
+
+  const [sending, setSending] =
+    useState(false);
 
   const [otherLastSeen, setOtherLastSeen] =
     useState<any>(null);
@@ -56,26 +198,45 @@ export default function ChatWindow({
   const [showProfile, setShowProfile] =
     useState(false);
 
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted] =
+    useState(false);
 
   const [otherProfile, setOtherProfile] =
     useState<OtherProfile>({
-      username: otherUser?.username || '',
+      username:
+        otherUser?.username || '',
       displayName:
-        otherUser?.displayName || 'User',
-      photoURL: otherUser?.photoURL || '',
-      verified: otherUser?.verified === true,
+        otherUser?.displayName ||
+        'User',
+      photoURL:
+        otherUser?.photoURL || '',
+      verified:
+        otherUser?.verified === true,
       bio: '',
     });
 
-  const otherId =
-    conversation.participants.find(
-      (id) => id !== currentUser.uid
-    ) || '';
+  const pendingMessages =
+    useRef(
+      new Map<string, Message>()
+    );
 
   /*
-   * Portal mounting.
+   * Prevents repeated unread-clear writes
+   * while this chat remains open.
    */
+  const unreadClearedForConversation =
+    useRef<string | null>(null);
+
+  const otherId =
+    conversation.participants.find(
+      (id) =>
+        id !== currentUser.uid
+    ) || '';
+
+  /* ============================================================
+     PORTAL
+  ============================================================ */
+
   useEffect(() => {
     setMounted(true);
 
@@ -84,30 +245,37 @@ export default function ChatWindow({
     };
   }, []);
 
-  /*
-   * Keep profile information synchronized
-   * with the profile supplied by MainApp.
-   */
+  /* ============================================================
+     SYNCHRONIZE OTHER USER FROM CONVERSATION
+  ============================================================ */
+
   useEffect(() => {
-    setOtherProfile((previous) => ({
-      username:
-        otherUser?.username ||
-        previous.username ||
-        '',
-      displayName:
-        otherUser?.displayName ||
-        previous.displayName ||
-        'User',
-      photoURL:
-        otherUser?.photoURL ||
-        previous.photoURL ||
-        '',
-      verified:
-        otherUser?.verified ??
-        previous.verified ??
-        false,
-      bio: previous.bio || '',
-    }));
+    setOtherProfile(
+      (previous) => ({
+        username:
+          otherUser?.username ||
+          previous.username ||
+          '',
+
+        displayName:
+          otherUser?.displayName ||
+          previous.displayName ||
+          'User',
+
+        photoURL:
+          otherUser?.photoURL ||
+          previous.photoURL ||
+          '',
+
+        verified:
+          otherUser?.verified ??
+          previous.verified ??
+          false,
+
+        bio:
+          previous.bio || '',
+      })
+    );
   }, [
     otherUser?.username,
     otherUser?.displayName,
@@ -115,55 +283,74 @@ export default function ChatWindow({
     otherUser?.verified,
   ]);
 
-  /*
-   * Listen for the other user's current profile,
-   * online status and last seen.
-   */
+  /* ============================================================
+     LOAD OTHER USER PROFILE ONCE
+============================================================ */
+
   useEffect(() => {
-    if (!otherId) return;
+    if (!otherId) {
+      return;
+    }
 
-    const userRef = doc(
-      db,
-      'users',
-      otherId
-    );
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      userRef,
-      (snapshot) => {
-        if (!snapshot.exists()) return;
+    async function loadOtherProfile() {
+      try {
+        const snapshot =
+          await getDoc(
+            doc(
+              db,
+              'users',
+              otherId
+            )
+          );
 
-        const data = snapshot.data();
+        if (
+          cancelled ||
+          !snapshot.exists()
+        ) {
+          return;
+        }
 
-        setOtherProfile((previous) => ({
-          username:
-            typeof data.username === 'string' &&
-            data.username.trim()
-              ? data.username
-              : previous.username,
+        const data =
+          snapshot.data();
 
-          displayName:
-            typeof data.displayName === 'string' &&
-            data.displayName.trim()
-              ? data.displayName
-              : previous.displayName,
+        setOtherProfile(
+          (previous) => ({
+            username:
+              typeof data.username ===
+                'string' &&
+              data.username.trim()
+                ? data.username
+                : previous.username,
 
-          photoURL:
-            typeof data.photoURL === 'string' &&
-            data.photoURL.trim()
-              ? data.photoURL
-              : previous.photoURL,
+            displayName:
+              typeof data.displayName ===
+                'string' &&
+              data.displayName.trim()
+                ? data.displayName
+                : previous.displayName,
 
-          verified:
-            typeof data.verified === 'boolean'
-              ? data.verified
-              : previous.verified,
+            photoURL:
+              typeof data.photoURL ===
+                'string' &&
+              data.photoURL.trim()
+                ? data.photoURL
+                : previous.photoURL,
 
-          bio:
-            typeof data.bio === 'string'
-              ? data.bio
-              : previous.bio,
-        }));
+            verified:
+              typeof data.verified ===
+              'boolean'
+                ? data.verified
+                : previous.verified,
+
+            bio:
+              typeof data.bio ===
+                'string'
+                ? data.bio
+                : previous.bio,
+          })
+        );
 
         setOtherLastSeen(
           data.lastSeen || null
@@ -172,102 +359,289 @@ export default function ChatWindow({
         setOtherOnline(
           data.online === true
         );
-      },
-      (error) => {
+      } catch (error) {
         console.error(
-          'Profile listener error:',
+          'Error loading other profile:',
           error
         );
       }
-    );
+    }
 
-    return unsubscribe;
+    loadOtherProfile();
+
+    return () => {
+      cancelled = true;
+    };
   }, [otherId]);
 
-  /*
-   * Listen for messages.
-   */
+  /* ============================================================
+     CLEAR UNREAD COUNT
+
+     IMPORTANT:
+     We only attempt this once for each
+     conversation while it is open.
+
+     This prevents repeated writes caused
+     by component/listener activity.
+  ============================================================ */
+
   useEffect(() => {
-    if (!conversation.id) return;
+    if (
+      !conversation.id ||
+      !currentUser.uid
+    ) {
+      return;
+    }
 
-    const messagesRef = collection(
-      db,
-      'conversations',
-      conversation.id,
-      'messages'
-    );
+    if (
+      unreadClearedForConversation.current ===
+      conversation.id
+    ) {
+      return;
+    }
 
-    const messagesQuery = query(
-      messagesRef,
-      orderBy('timestamp', 'desc'),
-      limit(50)
-    );
+    const currentUnread =
+      conversation.unreadCounts?.[
+        currentUser.uid
+      ];
 
-    const unsubscribe = onSnapshot(
-      messagesQuery,
-      async (snapshot) => {
-        const loadedMessages =
-          snapshot.docs
-            .map((messageDoc) => ({
-              id: messageDoc.id,
-              ...messageDoc.data(),
-            }))
-            .reverse() as Message[];
+    /*
+     * If there are already no unread messages,
+     * there is absolutely nothing to write.
+     */
+    if (
+      typeof currentUnread !==
+        'number' ||
+      currentUnread <= 0
+    ) {
+      unreadClearedForConversation.current =
+        conversation.id;
 
-        setMessages(loadedMessages);
+      return;
+    }
 
-        /*
-         * Mark incoming messages as delivered
-         * and read.
-         */
-        const updates: Promise<void>[] = [];
+    unreadClearedForConversation.current =
+      conversation.id;
 
-        snapshot.docs.forEach((messageDoc) => {
-          const data = messageDoc.data();
+    updateDoc(
+      doc(
+        db,
+        'conversations',
+        conversation.id
+      ),
+      {
+        [`unreadCounts.${currentUser.uid}`]:
+          0,
+      }
+    ).catch((error) => {
+      console.error(
+        'Failed to clear unread count:',
+        error
+      );
 
-          if (
-            data.senderId !== currentUser.uid &&
-            !data.readAt
-          ) {
-            updates.push(
-              updateDoc(
-                doc(
-                  db,
-                  'conversations',
-                  conversation.id,
-                  'messages',
+      /*
+       * Allow retry if the write failed.
+       */
+      if (
+        unreadClearedForConversation.current ===
+        conversation.id
+      ) {
+        unreadClearedForConversation.current =
+          null;
+      }
+    });
+  }, [
+    conversation.id,
+    conversation.unreadCounts,
+    currentUser.uid,
+  ]);
+
+  /* ============================================================
+     MESSAGE LISTENER
+
+     ONE REALTIME LISTENER FOR THE ACTIVE CHAT.
+  ============================================================ */
+
+  useEffect(() => {
+    if (!conversation.id) {
+      return;
+    }
+
+    /*
+     * Reset the local pending message map
+     * when switching conversations.
+     */
+    pendingMessages.current.clear();
+
+    const messagesRef =
+      collection(
+        db,
+        'conversations',
+        conversation.id,
+        'messages'
+      );
+
+    const messagesQuery =
+      query(
+        messagesRef,
+        orderBy(
+          'timestamp',
+          'desc'
+        ),
+        limit(50)
+      );
+
+    const unsubscribe =
+      onSnapshot(
+        messagesQuery,
+        (snapshot) => {
+          const loadedMessages =
+            snapshot.docs
+              .map((messageDoc) => {
+                const data =
+                  messageDoc.data();
+
+                const pending =
+                  pendingMessages.current.get(
+                    messageDoc.id
+                  );
+
+                return {
+                  id: messageDoc.id,
+                  ...data,
+                  timestamp:
+                    data.timestamp ||
+                    pending?.timestamp ||
+                    null,
+                } as Message;
+              })
+              .reverse();
+
+          /*
+           * Remove confirmed optimistic
+           * messages from the pending map.
+           */
+          snapshot.docs.forEach(
+            (messageDoc) => {
+              const data =
+                messageDoc.data();
+
+              if (
+                data.timestamp
+              ) {
+                pendingMessages.current.delete(
                   messageDoc.id
-                ),
-                {
-                  deliveredAt:
-                    data.deliveredAt ||
-                    serverTimestamp(),
-                  readAt:
-                    serverTimestamp(),
-                }
+                );
+              }
+            }
+          );
+
+          const serverIds =
+            new Set(
+              loadedMessages.map(
+                (message) =>
+                  message.id
               )
             );
-          }
-        });
 
-        if (updates.length > 0) {
-          try {
-            await Promise.all(updates);
-          } catch (error) {
+          const localOnly =
+            Array.from(
+              pendingMessages.current.values()
+            ).filter(
+              (message) =>
+                !serverIds.has(
+                  message.id
+                )
+            );
+
+          const combined = [
+            ...loadedMessages,
+            ...localOnly,
+          ].sort(
+            (a, b) =>
+              getTimestampMs(
+                a.timestamp
+              ) -
+              getTimestampMs(
+                b.timestamp
+              )
+          );
+
+          setMessages(
+            combined
+          );
+
+          /*
+           * Update only incoming messages
+           * that have not already been read.
+           *
+           * We deliberately do NOT update
+           * messages that already have readAt.
+           */
+          const unreadIncoming =
+            snapshot.docs.filter(
+              (messageDoc) => {
+                const data =
+                  messageDoc.data();
+
+                return (
+                  data.senderId !==
+                    currentUser.uid &&
+                  !data.readAt
+                );
+              }
+            );
+
+          if (
+            unreadIncoming.length === 0
+          ) {
+            return;
+          }
+
+          /*
+           * Each message needs its own update
+           * because each message document needs
+           * its own readAt/deliveredAt state.
+           */
+          const statusUpdates =
+            unreadIncoming.map(
+              (messageDoc) =>
+                updateDoc(
+                  doc(
+                    db,
+                    'conversations',
+                    conversation.id,
+                    'messages',
+                    messageDoc.id
+                  ),
+                  {
+                    deliveredAt:
+                      messageDoc.data()
+                        .deliveredAt ||
+                      serverTimestamp(),
+
+                    readAt:
+                      serverTimestamp(),
+                  }
+                )
+            );
+
+          Promise.all(
+            statusUpdates
+          ).catch((error) => {
             console.error(
               'Failed to update message status:',
               error
             );
-          }
+          });
+        },
+        (error) => {
+          console.error(
+            'Messages listener error:',
+            error
+          );
         }
-      },
-      (error) => {
-        console.error(
-          'Messages listener error:',
-          error
-        );
-      }
-    );
+      );
 
     return unsubscribe;
   }, [
@@ -275,93 +649,260 @@ export default function ChatWindow({
     currentUser.uid,
   ]);
 
-  /*
-   * Send message.
-   */
-  async function handleSendMessage(
+  /* ============================================================
+     SEND MESSAGE
+============================================================ */
+
+  function handleSendMessage(
     e?: React.FormEvent
   ) {
     e?.preventDefault();
 
-    const text = newMessage.trim();
+    const text =
+      newMessage.trim();
 
-    if (!text || sending) return;
+    if (
+      !text ||
+      sending ||
+      !otherId ||
+      !conversation.id
+    ) {
+      return;
+    }
 
-    setSending(true);
-    setNewMessage('');
-
-    try {
-      await addDoc(
+    const messageRef =
+      doc(
         collection(
           db,
           'conversations',
           conversation.id,
           'messages'
-        ),
-        {
-          text,
-          senderId: currentUser.uid,
-          senderName:
-            currentUser.displayName ||
-            currentUser.username ||
-            'User',
-          senderPhoto:
-            currentUser.photoURL || '',
-          timestamp: serverTimestamp(),
-          deliveredAt: null,
-          readAt: null,
-        }
+        )
       );
 
-      await updateDoc(
-        doc(
-          db,
-          'conversations',
-          conversation.id
-        ),
-        {
-          lastMessage: {
-            text,
-            senderId: currentUser.uid,
-            timestamp: serverTimestamp(),
-          },
-          updatedAt: serverTimestamp(),
-        }
-      );
-    } catch (error) {
-      console.error(
-        'Failed to send message:',
-        error
-      );
+    const localTimestamp =
+      new Date();
 
-      setNewMessage(text);
-    } finally {
-      setSending(false);
+    const senderName =
+      currentUser.displayName ||
+      currentUser.username ||
+      'User';
+
+    const senderPhoto =
+      currentUser.photoURL ||
+      '';
+
+    const optimisticMessage:
+      Message = {
+      id: messageRef.id,
+
+      text,
+
+      senderId:
+        currentUser.uid,
+
+      senderName,
+
+      senderPhoto,
+
+      timestamp:
+        localTimestamp,
+
+      deliveredAt:
+        null,
+
+      readAt:
+        null,
+    };
+
+    pendingMessages.current.set(
+      messageRef.id,
+      optimisticMessage
+    );
+
+    /*
+     * Display immediately.
+     */
+    setMessages(
+      (previous) => [
+        ...previous,
+        optimisticMessage,
+      ]
+    );
+
+    setNewMessage('');
+
+    /*
+     * The input is immediately
+     * available again.
+     */
+    setSending(false);
+
+    /*
+     * WRITE #1:
+     * Create the message.
+     */
+    setDoc(
+      messageRef,
+      {
+        text,
+
+        senderId:
+          currentUser.uid,
+
+        senderName,
+
+        senderPhoto,
+
+        timestamp:
+          serverTimestamp(),
+
+        deliveredAt:
+          null,
+
+        readAt:
+          null,
+      }
+    )
+      .then(() => {
+        /*
+         * WRITE #2:
+         * Update conversation preview
+         * and recipient unread count.
+         *
+         * This write is necessary for
+         * the current conversation-list design.
+         */
+        return updateDoc(
+          doc(
+            db,
+            'conversations',
+            conversation.id
+          ),
+          {
+            lastMessage: {
+              text,
+
+              senderId:
+                currentUser.uid,
+
+              timestamp:
+                serverTimestamp(),
+            },
+
+            updatedAt:
+              serverTimestamp(),
+
+            [`unreadCounts.${otherId}`]:
+              increment(1),
+          }
+        );
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to send message:',
+          error
+        );
+
+        pendingMessages.current.delete(
+          messageRef.id
+        );
+
+        setMessages(
+          (previous) =>
+            previous.filter(
+              (message) =>
+                message.id !==
+                messageRef.id
+            )
+        );
+
+        setNewMessage(
+          (previous) =>
+            previous
+              ? `${text}\n${previous}`
+              : text
+        );
+      });
+  }
+
+  /* ============================================================
+     TIMESTAMP HELPERS
+============================================================ */
+
+  function getTimestampMs(
+    timestamp: any
+  ): number {
+    if (!timestamp) {
+      return 0;
+    }
+
+    try {
+      if (
+        typeof timestamp.toMillis ===
+        'function'
+      ) {
+        return timestamp.toMillis();
+      }
+
+      if (
+        typeof timestamp.toDate ===
+        'function'
+      ) {
+        return timestamp
+          .toDate()
+          .getTime();
+      }
+
+      if (
+        timestamp instanceof Date
+      ) {
+        return timestamp.getTime();
+      }
+
+      const date =
+        new Date(timestamp);
+
+      return Number.isNaN(
+        date.getTime()
+      )
+        ? 0
+        : date.getTime();
+    } catch {
+      return 0;
     }
   }
 
-  /*
-   * Format last seen.
-   */
-  function formatLastSeen(timestamp: any) {
-    if (!timestamp) return '';
+  function formatLastSeen(
+    timestamp: any
+  ) {
+    if (!timestamp) {
+      return '';
+    }
 
     try {
-      const date = timestamp.toDate
-        ? timestamp.toDate()
-        : new Date(timestamp);
+      const date =
+        timestamp.toDate
+          ? timestamp.toDate()
+          : new Date(timestamp);
 
-      if (Number.isNaN(date.getTime())) {
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
         return '';
       }
 
-      const now = new Date();
+      const now =
+        new Date();
 
       const sameDay =
         date.toDateString() ===
         now.toDateString();
 
-      const yesterday = new Date(now);
+      const yesterday =
+        new Date(now);
 
       yesterday.setDate(
         now.getDate() - 1
@@ -372,10 +913,13 @@ export default function ChatWindow({
         yesterday.toDateString();
 
       const time =
-        date.toLocaleTimeString([], {
-          hour: 'numeric',
-          minute: '2-digit',
-        });
+        date.toLocaleTimeString(
+          [],
+          {
+            hour: 'numeric',
+            minute: '2-digit',
+          }
+        );
 
       if (sameDay) {
         return `last seen today at ${time}`;
@@ -386,10 +930,13 @@ export default function ChatWindow({
       }
 
       const datePart =
-        date.toLocaleDateString([], {
-          month: 'short',
-          day: 'numeric',
-        });
+        date.toLocaleDateString(
+          [],
+          {
+            month: 'short',
+            day: 'numeric',
+          }
+        );
 
       return `last seen ${datePart} at ${time}`;
     } catch {
@@ -397,37 +944,104 @@ export default function ChatWindow({
     }
   }
 
-  /*
-   * Format message time.
-   */
   function formatMessageTime(
     timestamp: any
   ) {
-    if (!timestamp) return '';
+    if (!timestamp) {
+      return '';
+    }
 
     try {
-      const date = timestamp.toDate
-        ? timestamp.toDate()
-        : new Date(timestamp);
+      const date =
+        timestamp.toDate
+          ? timestamp.toDate()
+          : new Date(timestamp);
 
-      if (Number.isNaN(date.getTime())) {
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
         return '';
       }
 
-      return date.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      return date.toLocaleTimeString(
+        [],
+        {
+          hour: '2-digit',
+          minute: '2-digit',
+        }
+      );
     } catch {
       return '';
     }
   }
 
-  /*
-   * Profile popup.
-   */
+  /* ============================================================
+     READ RECEIPT
+============================================================ */
+
+  function ReadReceipt({
+    message,
+  }: {
+    message: Message;
+  }) {
+    if (
+      message.senderId !==
+      currentUser.uid
+    ) {
+      return null;
+    }
+
+    if (!message.deliveredAt) {
+      return (
+        <span className="inline-flex items-center ml-1 text-purple-200">
+          <svg
+            className="w-3 h-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M5 12.5l4 4L19 6.5" />
+          </svg>
+        </span>
+      );
+    }
+
+    return (
+      <span
+        className={`inline-flex items-center ml-1 ${
+          message.readAt
+            ? 'text-blue-400'
+            : 'text-purple-200'
+        }`}
+      >
+        <svg
+          className="w-3.5 h-3.5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M2.5 12.5l4 4L14 9" />
+          <path d="M9 16.5l2.5 2.5L21.5 9" />
+        </svg>
+      </span>
+    );
+  }
+
+  /* ============================================================
+     PROFILE POPUP
+============================================================ */
+
   const profilePopup =
-    showProfile && mounted
+    showProfile &&
+    mounted
       ? createPortal(
           <div
             className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4"
@@ -466,20 +1080,17 @@ export default function ChatWindow({
 
               <div className="px-6 pt-8 pb-6">
                 <div className="flex justify-center">
-                  <img
-                    src={
-                      otherProfile.photoURL ||
-                      '/default-avatar.png'
+                  <Avatar
+                    photoURL={
+                      otherProfile.photoURL
                     }
-                    alt={
-                      otherProfile.displayName ||
-                      'Profile'
+                    name={
+                      otherProfile.displayName
                     }
-                    className="w-32 h-32 rounded-full object-cover border border-gray-200 shadow-md"
-                    onError={(e) => {
-                      e.currentTarget.src =
-                        '/default-avatar.png';
-                    }}
+                    username={
+                      otherProfile.username
+                    }
+                    className="w-32 h-32 rounded-full border border-gray-200 shadow-md"
                   />
                 </div>
 
@@ -551,6 +1162,10 @@ export default function ChatWindow({
         )
       : null;
 
+  /* ============================================================
+     UI
+============================================================ */
+
   return (
     <>
       <div className="h-full flex flex-col bg-gray-50 relative">
@@ -589,20 +1204,17 @@ export default function ChatWindow({
               }
               className="flex-1 min-w-0 flex items-center gap-3 text-left rounded-lg hover:bg-gray-50 px-1 py-0.5 transition-colors"
             >
-              <img
-                src={
-                  otherProfile.photoURL ||
-                  '/default-avatar.png'
+              <Avatar
+                photoURL={
+                  otherProfile.photoURL
                 }
-                alt={
-                  otherProfile.displayName ||
-                  'User'
+                name={
+                  otherProfile.displayName
                 }
-                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                onError={(e) => {
-                  e.currentTarget.src =
-                    '/default-avatar.png';
-                }}
+                username={
+                  otherProfile.username
+                }
+                className="w-10 h-10 rounded-full flex-shrink-0"
               />
 
               <div className="min-w-0 flex-1">
@@ -642,16 +1254,17 @@ export default function ChatWindow({
           {messages.length === 0 ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center px-6">
-                <img
-                  src={
-                    otherProfile.photoURL ||
-                    '/default-avatar.png'
+                <Avatar
+                  photoURL={
+                    otherProfile.photoURL
                   }
-                  alt={
-                    otherProfile.displayName ||
-                    'User'
+                  name={
+                    otherProfile.displayName
                   }
-                  className="w-16 h-16 rounded-full object-cover mx-auto mb-3"
+                  username={
+                    otherProfile.username
+                  }
+                  className="w-16 h-16 rounded-full mx-auto mb-3"
                 />
 
                 <p className="text-sm font-medium text-gray-700">
@@ -666,79 +1279,96 @@ export default function ChatWindow({
               </div>
             </div>
           ) : (
-            messages.map((message) => {
-              const isOwn =
-                message.senderId ===
-                currentUser.uid;
+            messages.map(
+              (message) => {
+                const isOwn =
+                  message.senderId ===
+                  currentUser.uid;
 
-              return (
-                <div
-                  key={message.id}
-                  className={`flex ${
-                    isOwn
-                      ? 'justify-end'
-                      : 'justify-start'
-                  }`}
-                >
+                return (
                   <div
-                    className={`flex items-end gap-1.5 max-w-[82%] sm:max-w-[70%] ${
+                    key={message.id}
+                    className={`flex ${
                       isOwn
-                        ? 'flex-row-reverse'
-                        : ''
+                        ? 'justify-end'
+                        : 'justify-start'
                     }`}
                   >
-                    {!isOwn && (
-                      <img
-                        src={
-                          otherProfile.photoURL ||
-                          message.senderPhoto ||
-                          '/default-avatar.png'
-                        }
-                        alt=""
-                        className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-                      />
-                    )}
-
                     <div
-                      className={`px-3 py-1.5 ${
+                      className={`flex items-end gap-1.5 max-w-[82%] sm:max-w-[70%] ${
                         isOwn
-                          ? 'bg-purple-600 text-white rounded-[14px] rounded-br-[5px]'
-                          : 'bg-white text-gray-900 border border-gray-200 rounded-[14px] rounded-bl-[5px]'
+                          ? 'flex-row-reverse'
+                          : ''
                       }`}
                     >
-                      <p className="text-[14px] leading-5 whitespace-pre-wrap break-words">
-                        {message.text}
-                      </p>
+                      {!isOwn && (
+                        <Avatar
+                          photoURL={
+                            otherProfile.photoURL ||
+                            message.senderPhoto
+                          }
+                          name={
+                            otherProfile.displayName ||
+                            message.senderName
+                          }
+                          username={
+                            otherProfile.username
+                          }
+                          className="w-7 h-7 rounded-full flex-shrink-0"
+                        />
+                      )}
 
                       <div
-                        className={`text-[9px] mt-0.5 text-right ${
+                        className={`px-3 py-1.5 ${
                           isOwn
-                            ? 'text-purple-200'
-                            : 'text-gray-400'
+                            ? 'bg-purple-600 text-white rounded-[14px] rounded-br-[5px]'
+                            : 'bg-white text-gray-900 border border-gray-200 rounded-[14px] rounded-bl-[5px]'
                         }`}
                       >
-                        {formatMessageTime(
-                          message.timestamp
-                        )}
+                        <p className="text-[14px] leading-5 whitespace-pre-wrap break-words">
+                          {message.text}
+                        </p>
+
+                        <div
+                          className={`text-[9px] mt-0.5 text-right flex items-center justify-end ${
+                            isOwn
+                              ? 'text-purple-200'
+                              : 'text-gray-400'
+                          }`}
+                        >
+                          {formatMessageTime(
+                            message.timestamp
+                          )}
+
+                          <ReadReceipt
+                            message={
+                              message
+                            }
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              }
+            )
           )}
         </div>
 
-        {/* MESSAGE INPUT */}
+        {/* INPUT */}
         <form
-          onSubmit={handleSendMessage}
+          onSubmit={
+            handleSendMessage
+          }
           className="flex-shrink-0 bg-white border-t border-gray-200 p-3"
         >
           <div className="flex items-end gap-2 max-w-4xl mx-auto">
             <textarea
               value={newMessage}
               onChange={(e) =>
-                setNewMessage(e.target.value)
+                setNewMessage(
+                  e.target.value
+                )
               }
               onKeyDown={(e) => {
                 if (
@@ -746,6 +1376,7 @@ export default function ChatWindow({
                   !e.shiftKey
                 ) {
                   e.preventDefault();
+
                   handleSendMessage();
                 }
               }}
@@ -754,7 +1385,6 @@ export default function ChatWindow({
               className="flex-1 resize-none border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent max-h-32"
             />
 
-            {/* SEND BUTTON */}
             <button
               type="submit"
               disabled={
@@ -777,7 +1407,8 @@ export default function ChatWindow({
                   strokeLinejoin="round"
                 >
                   <path d="M22 2L11 13" />
-                  <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+                  <path d="M22 2L15 22" />
+                  <path d="M11 13L2 9L22 2Z" />
                 </svg>
               )}
             </button>
