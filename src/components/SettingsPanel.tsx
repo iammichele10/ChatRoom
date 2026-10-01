@@ -5,13 +5,8 @@ import {
   doc,
   updateDoc,
 } from 'firebase/firestore';
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} from 'firebase/storage';
 
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { UserProfile } from '@/types';
 
 interface SettingsPanelProps {
@@ -22,18 +17,65 @@ interface SettingsPanelProps {
   ) => void;
 }
 
+async function uploadToCloudinary(
+  file: File
+): Promise<string> {
+  const cloudName =
+    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+  const uploadPreset =
+    process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+  if (!cloudName || !uploadPreset) {
+    throw new Error(
+      'Cloudinary is not configured. Please check your environment variables.'
+    );
+  }
+
+  const formData = new FormData();
+
+  formData.append('file', file);
+  formData.append('upload_preset', uploadPreset);
+  formData.append(
+    'folder',
+    'chatlinked/profile-pictures'
+  );
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+    {
+      method: 'POST',
+      body: formData,
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || !data.secure_url) {
+    console.error(
+      'Cloudinary upload error:',
+      data
+    );
+
+    throw new Error(
+      data?.error?.message ||
+        'Failed to upload profile picture.'
+    );
+  }
+
+  return data.secure_url;
+}
+
 export default function SettingsPanel({
   user,
   onClose,
   onProfileUpdated,
 }: SettingsPanelProps) {
-  const [photoURL, setPhotoURL] = useState(
-    user.photoURL || ''
-  );
+  const [photoURL, setPhotoURL] =
+    useState(user.photoURL || '');
 
-  const [bio, setBio] = useState(
-    user.bio || ''
-  );
+  const [bio, setBio] =
+    useState(user.bio || '');
 
   const [uploading, setUploading] =
     useState(false);
@@ -57,16 +99,16 @@ export default function SettingsPanel({
 
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (!file.type.startsWith('image/')) {
       setError(
-        'Image must be less than 5MB.'
+        'Please select an image file.'
       );
       return;
     }
 
-    if (!file.type.startsWith('image/')) {
+    if (file.size > 5 * 1024 * 1024) {
       setError(
-        'Please select an image file.'
+        'Image must be less than 5MB.'
       );
       return;
     }
@@ -76,26 +118,11 @@ export default function SettingsPanel({
     setSaved(false);
 
     try {
-      const storageRef = ref(
-        storage,
-        `profile-pics/${user.uid}`
-      );
-
-      await uploadBytes(
-        storageRef,
-        file
-      );
-
       const url =
-        await getDownloadURL(
-          storageRef
-        );
+        await uploadToCloudinary(file);
 
       setPhotoURL(url);
 
-      /*
-       * Save the new photo immediately.
-       */
       await updateDoc(
         doc(db, 'users', user.uid),
         {
@@ -178,7 +205,6 @@ export default function SettingsPanel({
 
   return (
     <div className="absolute inset-0 z-50 bg-white flex flex-col">
-      {/* Header */}
       <div className="h-16 flex items-center gap-3 px-4 border-b border-gray-200 flex-shrink-0">
         <button
           type="button"
@@ -206,11 +232,9 @@ export default function SettingsPanel({
         </h2>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-lg mx-auto p-6">
 
-          {/* Profile picture */}
           <div className="flex flex-col items-center">
             <div className="relative">
               <img
@@ -276,16 +300,13 @@ export default function SettingsPanel({
             </p>
           </div>
 
-          {/* Profile information */}
           <div className="mt-8 border border-gray-200 rounded-xl overflow-hidden">
-
             <div className="px-4 py-3 border-b border-gray-200">
               <p className="text-xs uppercase tracking-wide text-gray-400">
                 Profile
               </p>
             </div>
 
-            {/* Name */}
             <div className="px-4 py-4 border-b border-gray-100">
               <p className="text-xs text-gray-400">
                 Name
@@ -297,7 +318,6 @@ export default function SettingsPanel({
               </p>
             </div>
 
-            {/* Username */}
             <div className="px-4 py-4 border-b border-gray-100">
               <p className="text-xs text-gray-400">
                 Username
@@ -308,7 +328,6 @@ export default function SettingsPanel({
               </p>
             </div>
 
-            {/* Bio */}
             <div className="px-4 py-4">
               <label className="block text-xs text-gray-400 mb-2">
                 Bio
@@ -336,21 +355,18 @@ export default function SettingsPanel({
             </div>
           </div>
 
-          {/* Error */}
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm break-words">
               {error}
             </div>
           )}
 
-          {/* Saved */}
           {saved && !error && (
             <div className="mt-4 p-3 bg-green-50 border border-green-200 text-green-600 rounded-lg text-sm">
               Your profile has been updated.
             </div>
           )}
 
-          {/* Save button */}
           <button
             type="button"
             onClick={handleSave}

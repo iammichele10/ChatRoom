@@ -36,12 +36,25 @@ export interface Conversation {
 export interface Message {
   id: string;
   text: string;
+
   senderId: string;
   senderName: string | null;
   senderPhoto: string | null;
+
   timestamp: any;
 
   // Read receipts
   deliveredAt?: any;
   readAt?: any;
+}
+
+/**
+ * Public chat room
+ */
+export interface Room {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt?: any;
+  createdBy?: string;
 }
